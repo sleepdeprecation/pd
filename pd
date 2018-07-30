@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+from lib import Pagerduty, Incident, duration_parse
+from pathlib import Path
+
+
+class Cli():
+    @property
+    def client(self):
+        if not hasattr(self, '_pd_client'):
+            config_file = Path.home() / '.config' / 'pd.json'
+            if not config_file.is_file():
+                raise Exception("Need an API key set either as PAGERDUTY_API_KEY or in ~/.config/pd.json")
+
+            with config_file.open() as f:
+                conf = json.load(f)
+            api_key = conf['api_key']
+            email = conf['email']
+
+            self._pd_client = Pagerduty(api_key, email)
+        return self._pd_client
+
+    def main(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="cmd")
+
+        list_parser = subparsers.add_parser("summary", help="Print summary of pagerduty incidents")
+        list_parser.set_defaults(func=self.summary, triggered=False)
+        list_parser.add_argument("--user", help="show summary for a specific user by name or email address")
+        list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true")
+
+        snooze_parser = subparsers.add_parser("snooze", help="Snooze pagerduty incidents (also acks them first)")
+        snooze_parser.set_defaults(func=self.snooze)
+        snooze_parser.add_argument("--duration", "-d", help="length of time to snooze, in 2d6h3m format", default="24h", metavar="time")
+        snooze_parser.add_argument("ids", nargs="+", help="IDs of incidents to snooze")
+
+        args = parser.parse_args()
+        args.func(args)
+
+    def summary(self, args):
+        if args.user:
+            user = self.client.user(args.user)
+        else:
+            user = self.client.me
+
+        summary = self.client.summary(user.id, triggered=args.triggered)
+
+        keys = list(summary.keys())
+        keys.sort()
+
+        for key in keys:
+            items = summary[key]
+
+            incident_numbers = []
+            for incident in items:
+                incident_numbers.append(str(incident.raw.incident_number))
+
+
+            print("{}: {} incidents ({})".format(key, len(items), ", ".join(incident_numbers)))
+
+    def snooze(self, args):
+        delta = duration_parse(args.duration)
+
+        for _id in args.ids:
+            self.client.snooze(_id, delta)
+
+
+if __name__ == '__main__':
+    Cli().main()

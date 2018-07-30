@@ -1,0 +1,6 @@
+# TODO
+
+- snooze/ack by class - ie: snooze all terraform plan, or snooze all outdated-instances: security-dns-dns
+    - basically fuzzy matching? yeah essentially fuzzy matching
+
+- speed up 'boot up', ie finding your user id - probably just store both email address and user_id, or have pd pull it once and store it for future use?

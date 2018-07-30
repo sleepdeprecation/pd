@@ -9,7 +9,7 @@ Get a personal pagerduty API key. Store it in `$HOME/.config/pd.json` like so:
 ``` json
 {
     "api_key": "<your personal pagerduty api key>",
-    "user_id": "<your user id - not required>"
+    "email": "your email address"
 }
 ```
 
