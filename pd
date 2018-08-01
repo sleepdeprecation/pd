@@ -54,6 +54,9 @@ class Cli():
         ack_parser.set_defaults(func=self.ack)
         ack_parser.add_argument("ids", nargs="+", help="IDs of incident to ack")
 
+        ackall_parser = subparsers.add_parser("ackall", help="Ack all pagerduty incidents")
+        ackall_parser.set_defaults(func=self.ackall)
+
         args = parser.parse_args()
 
         if 'func' not in args:
@@ -119,6 +122,14 @@ class Cli():
         for i, alert in enumerate(incident.alerts):
             print(crayons.white("\nAlert {}".format(i), bold=True))
             print(alert)
+
+    def ackall(self, args):
+        for incident in self.client.incidents_by_user(self.client.me.id, triggered=True):
+            print("acking {}".format(incident.summary))
+            incident.acknowledge(self.client.email)
+        else:
+            print("You don't own any triggered incidents")
+            sys.exit(1)
 
 if __name__ == '__main__':
     Cli().main()
