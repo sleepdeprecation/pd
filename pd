@@ -37,7 +37,7 @@ class Cli():
 
         list_parser = subparsers.add_parser("summary", help="Print summary of pagerduty incidents")
         list_parser.set_defaults(func=self.summary, triggered=False, show_long=False)
-        list_parser.add_argument("--user", "-u", help="show summary for a specific user by name or email address")
+        list_parser.add_argument("--user", "-u", metavar="query", help="show summary for a specific user by name or email address")
         list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true")
         list_parser.add_argument("--long", "-l", help="show long form summary", dest="show_long", action="store_true")
 
