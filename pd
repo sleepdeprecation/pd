@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
+import crayons
 import json
 import os
+import sys
 from lib import Pagerduty, Incident, duration_parse
 from pathlib import Path
+
+status_colors = {
+    "triggered": crayons.red,
+    "acknowledged": crayons.yellow,
+    "resolved": crayons.green,
+}
 
 
 class Cli():
@@ -28,38 +36,65 @@ class Cli():
         subparsers = parser.add_subparsers(dest="cmd")
 
         list_parser = subparsers.add_parser("summary", help="Print summary of pagerduty incidents")
-        list_parser.set_defaults(func=self.summary, triggered=False)
-        list_parser.add_argument("--user", help="show summary for a specific user by name or email address")
+        list_parser.set_defaults(func=self.summary, triggered=False, show_long=False)
+        list_parser.add_argument("--user", "-u", help="show summary for a specific user by name or email address")
         list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true")
+        list_parser.add_argument("--long", "-l", help="show long form summary", dest="show_long", action="store_true")
 
         snooze_parser = subparsers.add_parser("snooze", help="Snooze pagerduty incidents (also acks them first)")
         snooze_parser.set_defaults(func=self.snooze)
         snooze_parser.add_argument("--duration", "-d", help="length of time to snooze, in 2d6h3m format", default="24h", metavar="time")
         snooze_parser.add_argument("ids", nargs="+", help="IDs of incidents to snooze")
 
+        show_parser = subparsers.add_parser("show", help="Show a pagerduty incident")
+        show_parser.set_defaults(func=self.show)
+        show_parser.add_argument("id", help="ID of incident to show")
+
+        ack_parser = subparsers.add_parser("ack", help="Ack a pagerduty incident")
+        ack_parser.set_defaults(func=self.ack)
+        ack_parser.add_argument("ids", nargs="+", help="IDs of incident to ack")
+
         args = parser.parse_args()
+
+        if 'func' not in args:
+            parser.print_help()
+            sys.exit(1)
+
         args.func(args)
 
     def summary(self, args):
         if args.user:
-            user = self.client.user(args.user)
+            userquery = args.user
         else:
-            user = self.client.me
+            userquery = self.client.email
 
-        summary = self.client.summary(user.id, triggered=args.triggered)
+        user = self.client.user(userquery)
 
-        keys = list(summary.keys())
-        keys.sort()
+        if args.show_long:
+            incidents = self.client.incidents_by_user(user.id, triggered=args.triggered)
+            for incident in incidents:
+                color = status_colors[incident.status]
+                print("{} {}".format(
+                    color("[{}]".format(incident.incident_number), bold=True),
+                    incident.title
+                ))
+        else:
+            summary = self.client.summary(user.id, triggered=args.triggered)
 
-        for key in keys:
-            items = summary[key]
+            keys = list(summary.keys())
+            keys.sort()
 
-            incident_numbers = []
-            for incident in items:
-                incident_numbers.append(str(incident.raw.incident_number))
+            for key in keys:
+                items = summary[key]
+
+                incident_numbers = []
+                for incident in items:
+                    incident_numbers.append(
+                        str(status_colors[incident.status](incident.id))
+                    )
 
 
-            print("{}: {} incidents ({})".format(key, len(items), ", ".join(incident_numbers)))
+                print("{}: {} incidents ({})".format(key, len(items), ", ".join(incident_numbers)))
 
     def snooze(self, args):
         delta = duration_parse(args.duration)
@@ -67,6 +102,23 @@ class Cli():
         for _id in args.ids:
             self.client.snooze(_id, delta)
 
+    def ack(self, args):
+        for _id in args.ids:
+            self.client.ack(_id)
+
+    def show(self, args):
+        incident = self.client.show(args.id)
+
+        # prime alerts, so printing happens quickly
+        incident.alerts
+
+        color = status_colors[incident.status]
+        print(color(incident.raw.summary, bold=True))
+        print(color("\t{}\t{}".format(incident.status, incident.dedup_key)))
+
+        for i, alert in enumerate(incident.alerts):
+            print(crayons.white("\nAlert {}".format(i), bold=True))
+            print(alert)
 
 if __name__ == '__main__':
     Cli().main()

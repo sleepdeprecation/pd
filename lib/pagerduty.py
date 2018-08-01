@@ -1,6 +1,7 @@
+import json
 import pygerduty.v2
 import parse
-import os
+import sys
 
 class Pagerduty():
     def __init__(self, api_key, email):
@@ -26,13 +27,13 @@ class Pagerduty():
 
         if len(users) == 0:
             print("No users found with the name \"{}\"".format(name))
-            os.exit(2)
+            sys.exit(2)
 
         if len(users) > 1:
             print("Too many users found with name \"{}\"".format(name))
             for user in users:
                 print("\t{} <{}>".format(user.name, user.email))
-            os.exit(2)
+            sys.exit(2)
 
         return users[0]
 
@@ -40,7 +41,7 @@ class Pagerduty():
         if not user_id:
             user_id = self.user_id
         raw_incidents = self.incidents_by_user(user_id, triggered = triggered)
-        incidents = map(Incident, raw_incidents)
+        incidents = map(lambda x: Incident(self.pager, x), raw_incidents)
 
         by_class = {}
         for incident in incidents:
@@ -63,6 +64,16 @@ class Pagerduty():
         print("snoozing {}".format(incident.summary))
         incident.snooze(self.email, delta)
 
+    def ack(self, _id):
+        incident = self.pager.incidents.show(_id)
+        if incident.status != "triggered":
+            print("Incident {} is not triggered".format(_id))
+            sys.exit(2)
+        incident.acknowledge(self.email)
+
+    def show(self, _id):
+        return Incident(self.pager, self.pager.incidents.show(_id))
+
 
 class Incident():
     classifications = {
@@ -70,10 +81,17 @@ class Incident():
         "Plan does not match remote state for": "terraform plan",
     }
 
-    def __init__(self, raw_incident):
+    def __init__(self, pager, raw_incident):
+        self.pager = pager
         self.raw = raw_incident
         self.classify()
         self._parse()
+
+        # set some useful things from raw incident
+        self.id = self.raw.incident_number
+        self.time = self.raw.created_at
+        self.status = self.raw.status
+        self.urgency = self.raw.urgency
 
     def classify(self):
         for prefix, klass in Incident.classifications.items():
@@ -108,13 +126,26 @@ class Incident():
             return self._summary
         return self.raw.title
 
+    @property
+    def alerts(self):
+        if not hasattr(self, '_alerts'):
+            self._alerts = list(map(Alert, self.pager.alerts.list(incident_id = self.raw.id)))
+        return self._alerts
+
+    @property
+    def dedup_key(self):
+        if not hasattr(self, '_dedup_key'):
+            self._dedup_key = self.alerts[0].alert_key
+        return self._dedup_key
+
     def dict(self, show_user = False):
         out = {
-            'id': self.raw.incident_number,
+            'id': self.id,
+            'dedup_key': self.dedup_key,
             'title': self.summary,
-            'time': self.raw.created_at,
-            'status': self.raw.status,
-            'urgency': self.raw.urgency,
+            'time': self.time,
+            'status': self.status,
+            'urgency': self.urgency,
             'type': self.type,
         }
 
@@ -123,14 +154,21 @@ class Incident():
 
         return out
 
-    def same_class(self, incident):
-        if self.type == None:
-            return self.raw.title == incident.raw.title
+class Alert():
+    def __init__(self, raw_alert):
+        self.raw = raw_alert
+        self.alert_key = self.raw.alert_key
+        self.body = self.raw.body.details
 
-        if self.type == "outdated incident":
-            return self.simple_name == incident.simple_name
 
-        if self.type == "terraform plan":
-            return self.repo == incident.repo
+    def __str__(self):
+        if isinstance(self.body, str):
+            return self.body
+        else:
+            return json.dumps(self.body, cls=ContainerEncoder, indent=4)
 
-        return False
+class ContainerEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, pygerduty.v2.Container):
+            return obj._kwargs
+        return super().default(obj)
