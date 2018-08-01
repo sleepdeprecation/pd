@@ -21,7 +21,7 @@ class Cli():
         if not hasattr(self, '_pd_client'):
             config_file = Path.home() / '.config' / 'pd.json'
             if not config_file.is_file():
-                raise Exception("Need an API key set either as PAGERDUTY_API_KEY or in ~/.config/pd.json")
+                raise Exception("No config file found at $HOME/.config/pd.json.")
 
             with config_file.open() as f:
                 conf = json.load(f)
