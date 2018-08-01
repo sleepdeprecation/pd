@@ -8,8 +8,6 @@ class Pagerduty():
         self.pager = pygerduty.v2.PagerDuty(api_key)
         self.email = email
 
-        # self.me = self.user(self.email)
-
     def incidents_by_user(self, user_id, triggered = False):
         args = {
             'statuses': ['triggered'],
