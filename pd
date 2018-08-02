@@ -41,11 +41,6 @@ class Cli():
         list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true")
         list_parser.add_argument("--long", "-l", help="show long form summary", dest="show_long", action="store_true")
 
-        snooze_parser = subparsers.add_parser("snooze", help="Snooze pagerduty incidents (also acks them first)")
-        snooze_parser.set_defaults(func=self.snooze)
-        snooze_parser.add_argument("--duration", "-d", help="length of time to snooze, in 2d6h3m format", default="24h", metavar="time")
-        snooze_parser.add_argument("ids", nargs="+", help="IDs of incidents to snooze")
-
         show_parser = subparsers.add_parser("show", help="Show a pagerduty incident")
         show_parser.set_defaults(func=self.show)
         show_parser.add_argument("id", help="ID of incident to show")
@@ -56,6 +51,16 @@ class Cli():
 
         ackall_parser = subparsers.add_parser("ackall", help="Ack all pagerduty incidents")
         ackall_parser.set_defaults(func=self.ackall)
+
+        snooze_parser = subparsers.add_parser("snooze", help="Snooze pagerduty incidents (also acks them first)")
+        snooze_parser.set_defaults(func=self.snooze)
+        snooze_parser.add_argument("--duration", "-d", help="length of time to snooze, in 2d6h3m format", default="24h", metavar="time")
+        snooze_parser.add_argument("ids", nargs="+", help="IDs of incidents to snooze")
+
+        resolve_parser = subparsers.add_parser("resolve", help="Resolve pagerduty incidents")
+        resolve_parser.set_defaults(func=self.resolve)
+        resolve_parser.add_argument("ids", nargs="+", help="IDs of incidents to resolve")
+
 
         args = parser.parse_args()
 
@@ -130,6 +135,10 @@ class Cli():
         else:
             print("You don't own any triggered incidents")
             sys.exit(1)
+
+    def resolve(self, args):
+        for _id in args.ids:
+            self.client.resolve(_id)
 
 if __name__ == '__main__':
     Cli().main()

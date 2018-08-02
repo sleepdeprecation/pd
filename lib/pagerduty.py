@@ -75,6 +75,13 @@ class Pagerduty():
             sys.exit(2)
         incident.acknowledge(self.email)
 
+    def resolve(self, _id):
+        incident = self.pager.incidents.show(_id)
+        if incident.status == "resolved":
+            print("Incident {} is already resolved".format(_id))
+            return
+        incident.resolve(self.email)
+
     def show(self, _id):
         return Incident(self.pager, self.pager.incidents.show(_id))
 
