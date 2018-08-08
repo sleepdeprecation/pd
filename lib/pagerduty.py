@@ -18,6 +18,7 @@ class Pagerduty():
         args = {
             'statuses': ['triggered'],
             'user_ids': [user_id],
+            'date_range': 'all',
         }
 
         if not triggered:
