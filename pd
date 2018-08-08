@@ -122,7 +122,7 @@ class Cli():
 
         color = status_colors[incident.status]
         print(color(incident.raw.summary, bold=True))
-        print(color("\t{}\t{}".format(incident.status, incident.dedup_key)))
+        print(color("\t{}\t{}\t{}".format(incident.status, incident.assignee, incident.dedup_key)))
 
         for i, alert in enumerate(incident.alerts):
             print(crayons.white("\nAlert {}".format(i), bold=True))

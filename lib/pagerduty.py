@@ -150,6 +150,12 @@ class Incident():
             self._dedup_key = self.alerts[0].alert_key
         return self._dedup_key
 
+    @property
+    def assignee(self):
+        if not hasattr(self, '_assignee'):
+            self._assignee = self.raw.assignments[0].assignee.summary
+        return self._assignee
+
     def dict(self, show_user = False):
         out = {
             'id': self.id,
