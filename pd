@@ -6,7 +6,6 @@ import json
 import os
 import sys
 from lib import Pagerduty, Incident, duration_parse
-from pathlib import Path
 
 status_colors = {
     "triggered": crayons.red,
@@ -19,16 +18,7 @@ class Cli():
     @property
     def client(self):
         if not hasattr(self, '_pd_client'):
-            config_file = Path.home() / '.config' / 'pd.json'
-            if not config_file.is_file():
-                raise Exception("No config file found at $HOME/.config/pd.json.")
-
-            with config_file.open() as f:
-                conf = json.load(f)
-            api_key = conf['api_key']
-            email = conf['email']
-
-            self._pd_client = Pagerduty(api_key, email)
+            self._pd_client = Pagerduty.from_config()
         return self._pd_client
 
     def main(self):

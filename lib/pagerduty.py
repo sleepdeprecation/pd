@@ -3,7 +3,22 @@ import pygerduty.v2
 import parse
 import sys
 
+from pathlib import Path
+
 class Pagerduty():
+    @classmethod
+    def from_config(cls):
+        config_file = Path.home() / '.config' / 'pd.json'
+        if not config_file.is_file():
+            raise Exception("No config file found at $HOME/.config/pd.json.")
+
+        with config_file.open() as f:
+            conf = json.load(f)
+        api_key = conf['api_key']
+        email = conf['email']
+
+        return cls(api_key, email)
+
     def __init__(self, api_key, email):
         self.pager = pygerduty.v2.PagerDuty(api_key)
         self.email = email
