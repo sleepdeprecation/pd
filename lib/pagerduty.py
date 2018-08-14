@@ -57,6 +57,30 @@ class Pagerduty():
 
         return users[0]
 
+    def oncalls(self):
+        raw_policies = list(Oncalls(self.pager).list())
+        policies = {}
+
+        for policy in raw_policies:
+            policy_id = policy.escalation_policy.id
+            if policy_id not in policies:
+                policies[policy_id] = {
+                    "name": policy.escalation_policy.summary,
+                    "id": policy_id,
+                    "levels": []
+                }
+
+            policies[policy_id]["levels"].append({
+                "level": policy.escalation_level,
+                "policy_name": policy.escalation_policy.summary,
+                "person": policy.user.summary,
+            })
+
+        for _, policy in policies.items():
+            policy["levels"].sort(key=lambda x: x['level'])
+
+        return policies
+
     def summary(self, user_id = None, triggered = False):
         if not user_id:
             user_id = self.user_id
@@ -205,3 +229,18 @@ class ContainerEncoder(json.JSONEncoder):
         if isinstance(obj, pygerduty.v2.Container):
             return obj._kwargs
         return super().default(obj)
+
+class Oncall(pygerduty.v2.Container):
+    pass
+
+class Oncalls(pygerduty.v2.Collection):
+    container = Oncall
+
+    def _list_no_pagination(self, **kwargs):
+        data = pygerduty.v2.Collection._list_no_pagination(self, **kwargs)
+        def add_id(container):
+            fake_id = "{}-{}".format(container.escalation_policy.id, container.escalation_level)
+            container._kwargs["id"] = fake_id
+            return container
+
+        return list(map(add_id, data))

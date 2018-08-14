@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from lib import Pagerduty, Incident, duration_parse
+from tabulate import tabulate
 
 status_colors = {
     "triggered": crayons.red,
@@ -50,6 +51,9 @@ class Cli():
         resolve_parser = subparsers.add_parser("resolve", help="Resolve pagerduty incidents")
         resolve_parser.set_defaults(func=self.resolve)
         resolve_parser.add_argument("ids", nargs="+", help="IDs of incidents to resolve")
+
+        who_parser = subparsers.add_parser("who", help="Find out who's on call")
+        who_parser.set_defaults(func=self.who)
 
 
         args = parser.parse_args()
@@ -129,6 +133,23 @@ class Cli():
     def resolve(self, args):
         for _id in args.ids:
             self.client.resolve(_id)
+
+    def who(self, args):
+        oncalls = self.client.oncalls()
+
+        table = []
+        for _, team in oncalls.items():
+            row = [team["name"]]
+            row.extend(map(lambda t: t["person"], team["levels"]))
+            table.append(row)
+        table.sort(key=lambda r: r[0])
+
+        longest = len(max(table, key=lambda r: len(r))) - 1
+        header = ["Team"]
+        for i in range(longest):
+            header.append("Level {}".format(i + 1))
+
+        print(tabulate(table, headers=header))
 
 if __name__ == '__main__':
     Cli().main()
