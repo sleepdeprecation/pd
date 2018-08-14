@@ -145,7 +145,7 @@ class Cli():
         table.sort(key=lambda r: r[0])
 
         longest = len(max(table, key=lambda r: len(r))) - 1
-        header = ["Team"]
+        header = ["Rotation"]
         for i in range(longest):
             header.append("Level {}".format(i + 1))
 
