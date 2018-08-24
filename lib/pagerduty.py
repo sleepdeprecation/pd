@@ -144,6 +144,8 @@ class Incident():
         self.status = self.raw.status
         self.urgency = self.raw.urgency
 
+        self.url = self.raw.html_url
+
     def classify(self):
         for prefix, klass in Incident.classifications.items():
             if self.raw.title.startswith(prefix):
@@ -192,7 +194,11 @@ class Incident():
     @property
     def assignee(self):
         if not hasattr(self, '_assignee'):
-            self._assignee = self.raw.assignments[0].assignee.summary
+            assignments = self.raw.assignments
+            if assignments:
+                self._assignee = self.raw.assignments[0].assignee.summary
+            else:
+                self._assignee = "(none)"
         return self._assignee
 
     def dict(self, show_user = False):
@@ -212,17 +218,22 @@ class Incident():
         return out
 
 class Alert():
+    class AlertBody():
+        def __init__(self, body):
+            self.details = body.details
+            self.contexts = body.contexts
+
+        def details_str(self):
+            if isinstance(self.details, str):
+                return self.details
+            return json.dumps(self.details, cls=ContainerEncoder, indent=4)
+
     def __init__(self, raw_alert):
         self.raw = raw_alert
         self.alert_key = self.raw.alert_key
-        self.body = self.raw.body.details
+        self.body = Alert.AlertBody(self.raw.body)
+        self.contexts = self.raw.body.contexts
 
-
-    def __str__(self):
-        if isinstance(self.body, str):
-            return self.body
-        else:
-            return json.dumps(self.body, cls=ContainerEncoder, indent=4)
 
 class ContainerEncoder(json.JSONEncoder):
     def default(self, obj):

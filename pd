@@ -5,6 +5,7 @@ import crayons
 import json
 import os
 import sys
+import textwrap
 from lib import Pagerduty, Incident, duration_parse
 from tabulate import tabulate
 
@@ -13,6 +14,9 @@ status_colors = {
     "acknowledged": crayons.yellow,
     "resolved": crayons.green,
 }
+
+def indent(text):
+    return textwrap.indent(str(text), ' ' * 4)
 
 
 class Cli():
@@ -116,11 +120,21 @@ class Cli():
 
         color = status_colors[incident.status]
         print(color(incident.raw.summary, bold=True))
-        print(color("\t{}\t{}\t{}".format(incident.status, incident.assignee, incident.dedup_key)))
+        print(indent(color("{status}\t{assignee}\t{dedup_key}\n{url}".format(
+            status = incident.status,
+            assignee = incident.assignee,
+            dedup_key = incident.dedup_key,
+            url = incident.url,
+        ))))
 
         for i, alert in enumerate(incident.alerts):
-            print(crayons.white("\nAlert {}".format(i), bold=True))
-            print(alert)
+            print(indent(crayons.white("\nAlert {}".format(i), bold=True)))
+            print(indent(indent(alert.body.details_str())))
+            print()
+
+            for context in alert.body.contexts:
+                print(indent(indent(crayons.white(context.text, bold=True))))
+                print(indent(indent(indent(context.href))))
 
     def ackall(self, args):
         for incident in self.client.incidents_by_user(self.client.me.id, triggered=True):
