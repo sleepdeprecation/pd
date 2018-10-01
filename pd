@@ -8,6 +8,8 @@ import sys
 import textwrap
 from lib import Pagerduty, Incident, duration_parse
 from tabulate import tabulate
+from urllib.parse import urlparse
+from webbrowser import open as webopen
 
 status_colors = {
     "triggered": crayons.red,
@@ -58,6 +60,10 @@ class Cli():
 
         who_parser = subparsers.add_parser("who", help="Find out who's on call")
         who_parser.set_defaults(func=self.who)
+
+        open_parser = subparsers.add_parser("open", help="Open pagerduty issues in your web browser")
+        open_parser.set_defaults(func=self.open)
+        open_parser.add_argument("id", help="ID of incident to open", default=-1)
 
 
         args = parser.parse_args()
@@ -165,6 +171,17 @@ class Cli():
             header.append("Level {}".format(i + 1))
 
         print(tabulate(table, headers=header))
+
+    def open(self, args):
+        if args.id == -1:
+            incident = self.client.show(1)
+            url = urlparse(incident.url)
+            page = "{}://{}".format(url.scheme, url.netloc)
+        else:
+            incident = self.client.show(args.id)
+            page = incident.url
+
+        webopen(page)
 
 if __name__ == '__main__':
     Cli().main()
