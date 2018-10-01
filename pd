@@ -80,9 +80,10 @@ class Cli():
             incidents = self.client.incidents_by_user(user.id, triggered=args.triggered)
             for incident in incidents:
                 color = status_colors[incident.status]
-                print("{} {}".format(
+                print("{} {}\n\t{}\n".format(
                     color("[{}]".format(incident.incident_number), bold=True),
-                    incident.title
+                    incident.title,
+                    incident.html_url,
                 ))
         else:
             summary = self.client.summary(user.id, triggered=args.triggered)
