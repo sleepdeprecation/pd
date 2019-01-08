@@ -33,10 +33,12 @@ class Cli():
         subparsers = parser.add_subparsers(dest="cmd")
 
         list_parser = subparsers.add_parser("summary", help="Print summary of pagerduty incidents")
-        list_parser.set_defaults(func=self.summary, triggered=False, show_long=False)
+        list_parser.set_defaults(func=self.summary)
         list_parser.add_argument("--user", "-u", metavar="query", help="show summary for a specific user by name or email address")
-        list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true")
-        list_parser.add_argument("--long", "-l", help="show long form summary", dest="show_long", action="store_true")
+        list_parser.add_argument("--triggered", help="show only triggered incidents", action="store_true", default=False)
+        list_parser.add_argument("--long", "-l", help="show long form summary", dest="show_long", action="store_true", default=False)
+        list_parser.add_argument("--short", "-s", help="show short form summary", dest="show_short", action="store_true", default=False)
+        list_parser.add_argument("--all", "-a", help="show all open incidents", dest="show_all", action="store_true", default=False)
 
         show_parser = subparsers.add_parser("show", help="Show a pagerduty incident")
         show_parser.set_defaults(func=self.show)
@@ -48,6 +50,11 @@ class Cli():
 
         ackall_parser = subparsers.add_parser("ackall", help="Ack all pagerduty incidents")
         ackall_parser.set_defaults(func=self.ackall)
+
+        assign_parser = subparsers.add_parser("assign", help="(re)assign an incident to another pagerduty user")
+        assign_parser.set_defaults(func=self.assign)
+        assign_parser.add_argument("id", help="ID of incident to assign")
+        assign_parser.add_argument("user", metavar="query", help="user to reassign incident to (by name or email)")
 
         snooze_parser = subparsers.add_parser("snooze", help="Snooze pagerduty incidents (also acks them first)")
         snooze_parser.set_defaults(func=self.snooze)
@@ -75,24 +82,18 @@ class Cli():
         args.func(args)
 
     def summary(self, args):
-        if args.user:
-            userquery = args.user
+        if args.show_all:
+            user_id = None
         else:
-            userquery = self.client.email
+            if args.user:
+                userquery = args.user
+            else:
+                userquery = self.client.email
 
-        user = self.client.user(userquery)
+            user_id = self.client.user(userquery).id
 
-        if args.show_long:
-            incidents = self.client.incidents_by_user(user.id, triggered=args.triggered)
-            for incident in incidents:
-                color = status_colors[incident.status]
-                print("{} {}\n\t{}\n".format(
-                    color("[{}]".format(incident.incident_number), bold=True),
-                    incident.title,
-                    incident.html_url,
-                ))
-        else:
-            summary = self.client.summary(user.id, triggered=args.triggered)
+        if args.show_short and not args.show_all:
+            summary = self.client.summary(user_id, triggered=args.triggered)
 
             keys = list(summary.keys())
             keys.sort()
@@ -103,11 +104,32 @@ class Cli():
                 incident_numbers = []
                 for incident in items:
                     incident_numbers.append(
-                        str(status_colors[incident.status](incident.id))
+                        str(status_colors[incident.status](incident.id, bold=True))
                     )
 
+                print("[{incidents}] {title}".format(
+                    incidents = ", ".join(incident_numbers),
+                    title = key,
+                ))
 
-                print("{}: {} incidents ({})".format(key, len(items), ", ".join(incident_numbers)))
+        else:
+            incidents = self.client.incidents(user_id = user_id, triggered=args.triggered)
+
+            output_str = "{number} {date} {title}"
+            if args.show_all:
+                output_str += " ({owner})"
+            if args.show_long:
+                output_str += "\n\t{url}\n"
+
+            for incident in incidents:
+                color = status_colors[incident.status]
+                print(output_str.format(
+                    number = color("[{}]".format(incident.id)),
+                    date = color(incident.date),
+                    title = incident.summary,
+                    url = incident.url,
+                    owner = incident.assignee,
+                ))
 
     def snooze(self, args):
         delta = duration_parse(args.duration)
@@ -144,12 +166,17 @@ class Cli():
                 print(indent(indent(indent(context.href))))
 
     def ackall(self, args):
-        for incident in self.client.incidents_by_user(self.client.me.id, triggered=True):
+        for incident in self.client.incidents(user_id = self.client.me.id, triggered=True):
             print("acking {}".format(incident.summary))
             incident.acknowledge(self.client.email)
         else:
             print("You don't own any triggered incidents")
             sys.exit(1)
+
+    def assign(self, args):
+        user = self.client.user(args.user)
+        self.client.reassign(args.id, user)
+
 
     def resolve(self, args):
         for _id in args.ids:

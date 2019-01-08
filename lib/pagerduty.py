@@ -1,7 +1,9 @@
 import json
-import pygerduty.v2
+import maya
 import parse
+import pygerduty.v2
 import sys
+import tzlocal
 
 from pathlib import Path
 
@@ -29,17 +31,22 @@ class Pagerduty():
             self._me = self.user(self.email)
         return self._me
 
-    def incidents_by_user(self, user_id, triggered = False):
+    def incidents(self, user_id = None, triggered = False):
         args = {
             'statuses': ['triggered'],
-            'user_ids': [user_id],
             'date_range': 'all',
         }
+
+        if user_id:
+            args['user_ids'] = [user_id]
 
         if not triggered:
             args['statuses'].append('acknowledged')
 
-        incidents = self.pager.incidents.list(**args)
+        def make_incident(raw):
+            return Incident(self, raw)
+
+        incidents = map(make_incident, self.pager.incidents.list(**args))
         return incidents
 
     def user(self, name):
@@ -82,10 +89,9 @@ class Pagerduty():
         return policies
 
     def summary(self, user_id = None, triggered = False):
-        if not user_id:
-            user_id = self.user_id
-        raw_incidents = self.incidents_by_user(user_id, triggered = triggered)
-        incidents = map(lambda x: Incident(self.pager, x), raw_incidents)
+        # if not user_id:
+        #     user_id = self.user(self.email).id
+        incidents = self.incidents(user_id = user_id, triggered = triggered)
 
         by_class = {}
         for incident in incidents:
@@ -125,6 +131,9 @@ class Pagerduty():
     def show(self, _id):
         return Incident(self.pager, self.pager.incidents.show(_id))
 
+    def reassign(self, _id, user):
+        return self.pager.incidents.show(_id).reassign([user.id], self.email)
+
 
 class Incident():
     classifications = {
@@ -143,6 +152,8 @@ class Incident():
         self.time = self.raw.created_at
         self.status = self.raw.status
         self.urgency = self.raw.urgency
+        self.created_at = maya.parse(self.time).datetime(to_timezone=str(tzlocal.get_localzone()))
+        self.date = self.created_at.strftime("%Y-%m-%d")
 
         self.url = self.raw.html_url
 
