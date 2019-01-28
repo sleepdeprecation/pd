@@ -1,10 +1,12 @@
 import argparse
 import crayons
 import json
+import maya
 import os
 import sys
 from .pagerduty import Pagerduty, Incident
 from .utils import duration_seconds, duration_delta
+# from dateutil.parser import parse as date_parse
 from tabulate import tabulate
 from urllib.parse import urlparse
 from webbrowser import open as webopen
@@ -69,6 +71,13 @@ class Cli():
         open_parser = subparsers.add_parser("open", help="Open pagerduty issues in your web browser")
         open_parser.set_defaults(func=self.open)
         open_parser.add_argument("id", help="ID of incident to open", default=-1)
+
+        override_parser = subparsers.add_parser("override", help="Schedule an override")
+        override_parser.set_defaults(func=self.override)
+        override_parser.add_argument("schedule", help="Schedule name or ID")
+        override_parser.add_argument("user", help="User who is taking the override")
+        override_parser.add_argument("start", help="Start of override (date time, in the schedule's timezone)")
+        override_parser.add_argument("duration", help="length of override, in 2d6h3m format")
 
 
         args = parser.parse_args()
@@ -210,4 +219,29 @@ class Cli():
             page = incident.url
 
         webopen(page)
+
+    def override(self, args):
+        schedule = self.client.schedule(args.schedule)
+        user = self.client.user(args.user)
+
+        tz = schedule.time_zone
+
+        start = maya.parse(args.start, timezone=schedule.time_zone).datetime(to_timezone=tz)
+        delta = duration_delta(args.duration)
+        end = start + delta
+
+        existing_schedule = self.client.schedule_at(schedule.id, start, end)#.final_schedule
+
+        print("You will be overriding:")
+        for entry in existing_schedule.final_schedule.rendered_schedule_entries:
+            username = entry.user.summary
+            override_start = maya.parse(entry.start).datetime(to_timezone=tz)
+            override_end = maya.parse(entry.end).datetime(to_timezone=tz)
+            print("\t{}, from {} to {}".format(username, override_start, override_end))
+
+        correct = input("Is this correct [yN]? ")
+        if correct[0] not in ["y", "Y"]:
+            sys.exit(1)
+
+        self.client.create_override(schedule.id, user.id, start, end)
 

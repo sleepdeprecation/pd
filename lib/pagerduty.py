@@ -136,6 +136,33 @@ class Pagerduty():
     def reassign(self, _id, user):
         return self.pager.incidents.show(_id).reassign([user.id], self.email)
 
+    def schedule(self, name):
+        schedules = list(self.pager.schedules.list(query = name))
+
+        if len(schedules) == 0:
+            print("No schedule found with name \"{}\"".format(name))
+            sys.exit(2)
+
+        if len(schedules) > 1:
+            print("Too many schedules found with name \"{}\"".format(name))
+            for schedule in schedules:
+                print("\t({}) {}".format(schedule.id, schedule.name))
+            sys.exit(2)
+
+        return schedules[0]
+
+    def schedule_at(self, _id, start, end=None):
+        args = { "since": start }
+        if end:
+            args["until"] = end
+
+        return self.pager.schedules.show(_id, **args)
+
+    def create_override(self, schedule_id, user_id, start, end):
+        schedule = self.pager.schedules.show(schedule_id)
+        schedule.overrides.create(start = start, end = end, user_id = user_id)
+
+
 
 class Incident():
     classifications = {
