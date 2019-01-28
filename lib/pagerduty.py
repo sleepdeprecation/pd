@@ -8,6 +8,8 @@ import tzlocal
 from pathlib import Path
 
 class Pagerduty():
+    MAX_SNOOZE_DURATION = 7 * 24 * 60 * 60
+
     @classmethod
     def from_config(cls):
         config_file = Path.home() / '.config' / 'pd.json'
