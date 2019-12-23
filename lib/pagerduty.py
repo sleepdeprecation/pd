@@ -163,7 +163,6 @@ class Pagerduty():
         schedule.overrides.create(start = start, end = end, user_id = user_id)
 
 
-
 class Incident():
     classifications = {
         "Outdated running instance": "outdated instance",
@@ -217,6 +216,10 @@ class Incident():
     def summary(self):
         if hasattr(self, '_summary'):
             return self._summary
+        return self.raw.title
+
+    @property
+    def raw_summary(self):
         return self.raw.title
 
     @property

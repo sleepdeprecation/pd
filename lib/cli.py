@@ -4,6 +4,7 @@ import json
 import maya
 import os
 import sys
+import textwrap
 from .pagerduty import Pagerduty, Incident
 from .utils import duration_seconds, duration_delta
 # from dateutil.parser import parse as date_parse
@@ -133,7 +134,7 @@ class Cli():
                 print(output_str.format(
                     number = color("[{}]".format(incident.id)),
                     date = color(incident.date),
-                    title = incident.summary,
+                    title = incident.raw_summary,
                     url = incident.url,
                     owner = incident.assignee,
                 ))
