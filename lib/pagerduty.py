@@ -260,6 +260,9 @@ class Incident():
 
         return out
 
+    def acknowledge(self, email):
+        self.raw.acknowledge(email)
+
 class Alert():
     class AlertBody():
         def __init__(self, body):
