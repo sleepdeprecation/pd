@@ -8,8 +8,8 @@ TIMEDELTA_REGEX = (r'((?P<days>-?\d+)d)?'
 TIMEDELTA_PATTERN = re.compile(TIMEDELTA_REGEX, re.IGNORECASE)
 
 
-def duration_seconds(delta):
-    duration = int(duration_delta.total_seconds())
+def duration_seconds(duration):
+    duration = int(duration_delta(duration).total_seconds())
 
     return duration
 
